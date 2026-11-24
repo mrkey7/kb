@@ -87,7 +87,7 @@ def parse_csv_url(url):
     parsed = urlparse(url)
     if parsed.scheme != "https" or parsed.hostname != "docs.google.com":
         raise ValueError("Gunakan URL CSV publik Google Sheets.")
-    if "/spreadsheets/" not in parsed.path or "pub" not in parsed.query or "output=csv" not in parsed.query:
+    if "/spreadsheets/" not in parsed.path or ("/pub" not in parsed.path and "pub" not in parsed.query) or "output=csv" not in parsed.query:
         raise ValueError("URL harus berupa tautan Publish to web dengan format CSV.")
     return url
 
@@ -252,14 +252,22 @@ class Handler(SimpleHTTPRequestHandler):
                 return json_response(self, {"error": "Proyek tidak ditemukan."}, 404)
             try:
                 payload = read_json(self)
-                edit_url = str(payload.get("edit_url", "")).strip()
-                csv_url = str(payload.get("csv_url", "")).strip()
-                if not edit_url.startswith("https://docs.google.com/spreadsheets/"):
-                    raise ValueError("URL editor Google Sheets tidak valid.")
-                if csv_url:
-                    parse_csv_url(csv_url)
+                source_type = str(payload.get("type", "gsheet")).strip()
                 info = json.loads((path / "project.json").read_text(encoding="utf-8"))
-                info["source"] = {"type": "gsheet", "edit_url": edit_url, "csv_url": csv_url}
+                if source_type == "excel":
+                    if not (path / "editor.xlsx").is_file():
+                        raise ValueError("File editor.xlsx tidak ditemukan.")
+                    info["source"] = {"type": "excel", "file": "editor.xlsx"}
+                elif source_type == "gsheet":
+                    edit_url = str(payload.get("edit_url", "")).strip()
+                    csv_url = str(payload.get("csv_url", "")).strip()
+                    if not edit_url.startswith("https://docs.google.com/spreadsheets/"):
+                        raise ValueError("URL editor Google Sheets tidak valid.")
+                    if csv_url:
+                        parse_csv_url(csv_url)
+                    info["source"] = {"type": "gsheet", "edit_url": edit_url, "csv_url": csv_url}
+                else:
+                    raise ValueError("Jenis sumber tidak dikenal.")
                 save_info(path, info)
                 return json_response(self, {"ok": True, "project": project_info(path)})
             except (ValueError, UnicodeDecodeError, json.JSONDecodeError) as exc:
