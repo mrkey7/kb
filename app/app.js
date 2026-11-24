@@ -1,322 +1,45 @@
-const $ = (selector) => document.querySelector(selector);
-const THEME_KEY = "kb-theme";
-const GRID_KEY = "kb-grid-visible";
-const URL_KEY = "kb-sheet-url";
-
-let sheet = { rows: [], rowCount: 0, columnCount: 0 };
-let sidebarCompact = false;
-
-function setTheme(theme) {
-  const selected = ["system", "light", "dark"].includes(theme) ? theme : "system";
-  document.documentElement.dataset.theme = selected;
-  const select = $("#theme-select");
-  if (select) select.value = selected;
-  localStorage.setItem(THEME_KEY, selected);
+const $=s=>document.querySelector(s),THEME_KEY="kb-theme",GRID_KEY="kb-grid-visible";
+let activeProject=null,sheet={rows:[],rowCount:0,columnCount:0},sidebarCompact=false;
+async function api(url,options={}){const r=await fetch(url,options),d=await r.json();if(!r.ok)throw Error(d.error||"Permintaan gagal.");return d;}
+function setTheme(v){v=["system","light","dark"].includes(v)?v:"system";document.documentElement.dataset.theme=v;localStorage.setItem(THEME_KEY,v);}
+function esc(v){return String(v).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function previewDoc(rows,cols){const body=rows.map(r=>"<tr>"+Array.from({length:cols},(_,i)=>"<td>"+esc(r[i]??"")+"</td>").join("")+"</tr>").join("");return '<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#fff;color:#20242b}body{padding:24px;font:14px/1.5 Inter,"Segoe UI",Arial,sans-serif}table{border-collapse:collapse;table-layout:fixed;min-width:100%;width:max-content}td{min-width:96px;width:96px;height:32px;padding:5px 8px;border:1px solid #e1e5eb;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}</style></head><body><table><tbody>'+body+'</tbody></table></body></html>';}
+function colName(n){let s="";for(n++;n;n=Math.floor((n-1)/26))s=String.fromCharCode(65+(n-1)%26)+s;return s;}
+function renderGrid(){const o=$("#grid-overlay");if(localStorage.getItem(GRID_KEY)!=="true"||!sheet.rowCount||!sheet.columnCount){o.hidden=true;o.replaceChildren();return;}o.hidden=false;o.style.backgroundSize=(100/sheet.columnCount)+"% 100%,100% "+(100/sheet.rowCount)+"%";const f=document.createDocumentFragment(),n=Math.min(sheet.rowCount*sheet.columnCount,10000);for(let i=0;i<n;i++){const x=document.createElement("span");x.className="grid-coordinate";x.textContent=colName(i%sheet.columnCount)+(Math.floor(i/sheet.columnCount)+1);f.append(x);}o.replaceChildren(f);o.style.gridTemplateColumns="repeat("+sheet.columnCount+",minmax(0,1fr))";o.style.gridTemplateRows="repeat("+sheet.rowCount+",minmax(0,1fr))";}
+function showPreview(d){sheet={rows:d.rows||[],rowCount:+d.rowCount||0,columnCount:+d.columnCount||0};$("#workspace-frame").srcdoc=previewDoc(sheet.rows,sheet.columnCount);$("#workspace-frame").hidden=false;$("#excel-workspace").hidden=true;renderGrid();}
+async function renderActive(){if(!activeProject)throw Error("Pilih proyek terlebih dahulu.");const d=await api("/api/projects/"+activeProject.id+"/render",{method:"POST"});showPreview(d);return d;}
+function setMode(mode){if(!activeProject)return;const f=$("#workspace-frame"),x=$("#excel-workspace");if(mode==="preview"){f.hidden=false;x.hidden=true;renderActive().catch(e=>alert(e.message));return;}if(activeProject.source.type==="gsheet"){f.hidden=false;x.hidden=true;const u=activeProject.source.edit_url;f.removeAttribute("srcdoc");f.src=u+(u.includes("?")?"&":"?")+"rm=minimal";}else{f.hidden=true;x.hidden=false;$("#excel-project-name").textContent=activeProject.name;}localStorage.setItem("kb-view",mode);}
+async function refreshProjects(){const d=await api("/api/projects"),box=$("#project-list");box.replaceChildren();if(!d.projects.length){box.textContent="Belum ada proyek. Buat proyek untuk memulai.";return;}d.projects.forEach(p=>{const row=document.createElement("div");row.className="project-item"+(activeProject?.id===p.id?" active":"");const b=document.createElement("button");b.type="button";b.className="project-open";b.textContent=p.name;b.onclick=()=>openProject(p.id);const sm=document.createElement("small");sm.textContent=p.source.type==="gsheet"?"Google Sheets":"Excel";row.append(b,sm);box.append(row);});}
+async function openProject(id){const d=await api("/api/projects/"+id);activeProject=d.project;localStorage.setItem("kb-active-project",id);await refreshProjects();selectPanel("editor");setMode("editor");}
+async function createProject(name){const d=await api("/api/projects",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name})});activeProject=d.project;localStorage.setItem("kb-active-project",activeProject.id);await refreshProjects();selectPanel("editor");setMode("editor");}
+async function openExcel(){try{const d=await api("/api/projects/"+activeProject.id+"/open-editor",{method:"POST"});$("#excel-message").textContent=d.message||"Editor dibuka.";}catch(e){$("#excel-message").textContent=e.message;}}
+function selectPanel(name){
+ document.querySelectorAll(".nav-item").forEach(b=>{const a=b.dataset.panel===name;b.classList.toggle("is-selected",a);b.querySelector(".nav-arrow").textContent=a?"⌄":"›";});
+ const panels={
+ proyek:{t:"Proyek",h:'<form id="create-form" class="source-form"><label class="field"><span>Nama proyek baru</span><input id="project-name" maxlength="80" placeholder="Nama proyek" required></label><button class="action-button">Buat proyek + template Excel</button></form><div class="project-tools"><button id="refresh-projects" class="subtle-button" type="button">Muat ulang</button></div><div id="project-list" class="projects">Memuat proyek…</div><p id="project-message" class="message"></p>'+(activeProject?'<div class="active-project"><b>Proyek aktif</b><p id="active-name"></p><label class="field"><span>Ubah nama</span><input id="rename-project" maxlength="80"></label><button id="rename-button" class="subtle-button" type="button">Simpan nama</button><button id="delete-project" class="danger-button" type="button">Hapus proyek</button></div>':'')},
+ editor:{t:"Editor",h:activeProject?'<p class="active-label">Proyek: <b>'+esc(activeProject.name)+'</b></p><p class="note">'+(activeProject.source.type==="gsheet"?"Google Sheets dapat diedit langsung di area kerja.":"File Excel tersimpan di folder proyek dan dibuka dengan aplikasi Excel.")+'</p><button id="show-editor" class="action-button" type="button">Tampilkan editor</button><button id="open-full" class="subtle-button wide" type="button">Buka editor halaman penuh</button><button id="download-editor" class="subtle-button wide" type="button">Unduh file Excel</button>':'<p class="note">Pilih atau buat proyek terlebih dahulu.</p>'},
+ preview:{t:"Preview",h:activeProject?'<p class="active-label">Hasil terjemahan: <b>'+esc(activeProject.name)+'</b></p><button id="render-button" class="action-button" type="button">Render / Perbarui preview</button><p class="note">KB membaca sumber editor proyek aktif dan menerjemahkannya menjadi tampilan web.</p>':'<p class="note">Pilih atau buat proyek terlebih dahulu.</p>'},
+ sumber:{t:"Sumber editor",h:activeProject?'<p class="active-label">Proyek: <b>'+esc(activeProject.name)+'</b></p><label class="field"><span>Jenis sumber</span><select id="source-type"><option value="excel">Excel lokal</option><option value="gsheet">Google Sheets</option></select></label><div id="gsheet-fields"><label class="field"><span>URL editor Google Sheets</span><input id="gsheet-edit" type="url" placeholder="https://docs.google.com/spreadsheets/d/.../edit"></label><label class="field"><span>URL Publish to web (CSV)</span><input id="gsheet-csv" type="url" placeholder="URL publik format CSV"></label><button id="save-gsheet" class="action-button" type="button">Hubungkan Google Sheets</button><p class="help">Gunakan URL edit untuk membuka editor dan URL Publish to web CSV agar KB dapat membaca datanya.</p></div><p id="source-info" class="message"></p>':'<p class="note">Pilih proyek terlebih dahulu.</p>'},
+ grid:{t:"Grid",h:'<label class="check-field"><input id="grid-visible" type="checkbox"><span>Tampilkan koordinat A1</span></label><p class="note">Grid mengikuti jumlah baris dan kolom hasil pembacaan sumber.</p><p class="muted">'+(sheet.rowCount?sheet.rowCount+" baris × "+sheet.columnCount+" kolom":"Belum ada data preview.")+'</p>'},
+ umum:{t:"Umum",h:'<label class="field"><span>Tema antarmuka</span><select id="theme-select"><option value="system">System</option><option value="light">Terang</option><option value="dark">Gelap</option></select></label><p class="note">File sumber adalah database utama proyek. Preview dapat dibuat ulang kapan saja.</p>'}};
+ const p=panels[name]||panels.proyek;$("#panel-title").textContent=p.t;$("#panel-content").innerHTML=p.h;
+ if(name==="proyek"){
+  if(activeProject){$("#active-name").textContent=activeProject.name;$("#rename-project").value=activeProject.name;}
+  $("#create-form").onsubmit=async e=>{e.preventDefault();try{await createProject($("#project-name").value.trim());}catch(err){$("#project-message").textContent=err.message;}};
+  $("#refresh-projects").onclick=()=>refreshProjects();
+  if(activeProject){$("#rename-button").onclick=async()=>{try{const d=await api("/api/projects/"+activeProject.id,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:$("#rename-project").value.trim()})});activeProject=d.project;selectPanel("proyek");refreshProjects();}catch(e){alert(e.message);}};
+  $("#delete-project").onclick=async()=>{if(!confirm("Hapus proyek beserta file sumbernya?"))return;await api("/api/projects/"+activeProject.id,{method:"DELETE"});activeProject=null;sheet={rows:[],rowCount:0,columnCount:0};$("#workspace-frame").srcdoc="";localStorage.removeItem("kb-active-project");selectPanel("proyek");refreshProjects();};}
+  refreshProjects().catch(e=>$("#project-list").textContent=e.message);
+ }
+ if(name==="editor"&&activeProject){$("#show-editor").onclick=()=>setMode("editor");$("#open-full").onclick=()=>{if(activeProject.source.type==="gsheet")window.open(activeProject.source.edit_url,"_blank","noopener");else openExcel();};$("#download-editor").onclick=()=>{if(activeProject.source.type==="excel")location.href="/api/projects/"+activeProject.id+"/editor-file";else window.open(activeProject.source.edit_url,"_blank","noopener");};}
+ if(name==="preview"&&activeProject)$("#render-button").onclick=async e=>{e.target.disabled=true;try{const d=await renderActive();e.target.textContent="Berhasil: "+d.rowCount+" × "+d.columnCount;}catch(err){e.target.textContent=err.message;}finally{e.target.disabled=false;}};
+ if(name==="sumber"&&activeProject){$("#source-type").value=activeProject.source.type;$("#gsheet-fields").hidden=activeProject.source.type!=="gsheet";$("#source-type").onchange=e=>$("#gsheet-fields").hidden=e.target.value!=="gsheet";$("#gsheet-edit").value=activeProject.source.edit_url||"";$("#gsheet-csv").value=activeProject.source.csv_url||"";$("#save-gsheet").onclick=async()=>{try{const d=await api("/api/projects/"+activeProject.id+"/source",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({edit_url:$("#gsheet-edit").value.trim(),csv_url:$("#gsheet-csv").value.trim()})});activeProject=d.project;$("#source-info").textContent="Google Sheets terhubung ke proyek.";$("#source-info").className="message success";refreshProjects();}catch(e){$("#source-info").textContent=e.message;$("#source-info").className="message error";}};}
+ if(name==="grid"){const c=$("#grid-visible");c.checked=localStorage.getItem(GRID_KEY)==="true";c.onchange=()=>{localStorage.setItem(GRID_KEY,String(c.checked));renderGrid();};}
+ if(name==="umum"){$("#theme-select").value=localStorage.getItem(THEME_KEY)||"system";$("#theme-select").onchange=e=>setTheme(e.target.value);}
 }
-
-function applyTheme() {
-  setTheme(localStorage.getItem(THEME_KEY) || "system");
-}
-
-async function api(url, options = {}) {
-  const response = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Permintaan gagal.");
-  return data;
-}
-
-function escapeHtml(value) {
-  return String(value).replace(/[&<>"']/g, (char) => ({
-    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
-  })[char]);
-}
-
-function buildPreviewDocument(rows, columnCount) {
-  const bodyRows = rows.map((row) => {
-    const cells = Array.from({ length: columnCount }, (_, index) =>
-      '<td>' + escapeHtml(row[index] ?? "") + '</td>'
-    ).join("");
-    return "<tr>" + cells + "</tr>";
-  }).join("");
-  return '<!doctype html><html lang="id"><head><meta charset="utf-8">' +
-    '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-    '<style>' +
-    '*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#fff;color:#20242b}' +
-    'body{padding:24px;font:14px/1.5 Inter,"Segoe UI",Arial,sans-serif}' +
-    'table{border-collapse:collapse;table-layout:fixed;min-width:100%;width:max-content;max-width:none}' +
-    'td{min-width:96px;width:96px;height:32px;padding:5px 8px;border:1px solid #e1e5eb;vertical-align:top;overflow-wrap:anywhere;white-space:pre-wrap}' +
-    '</style></head><body><table><tbody>' + bodyRows + '</tbody></table></body></html>';
-}
-
-function columnName(index) {
-  let name = "";
-  let value = index + 1;
-  while (value > 0) {
-    const remainder = (value - 1) % 26;
-    name = String.fromCharCode(65 + remainder) + name;
-    value = Math.floor((value - 1) / 26);
-  }
-  return name;
-}
-
-function renderGrid() {
-  const overlay = $("#grid-overlay");
-  const visible = localStorage.getItem(GRID_KEY) === "true";
-  if (!visible || !sheet.rowCount || !sheet.columnCount) {
-    overlay.hidden = true;
-    overlay.replaceChildren();
-    return;
-  }
-
-  overlay.hidden = false;
-  overlay.style.setProperty("--grid-columns", String(sheet.columnCount));
-  overlay.style.setProperty("--grid-rows", String(sheet.rowCount));
-  overlay.style.backgroundSize =
-    (100 / sheet.columnCount) + "% 100%, 100% " + (100 / sheet.rowCount) + "%";
-
-  const total = sheet.rowCount * sheet.columnCount;
-  const labelLimit = 10000;
-  const fragment = document.createDocumentFragment();
-  const count = Math.min(total, labelLimit);
-  for (let i = 0; i < count; i++) {
-    const cell = document.createElement("span");
-    cell.className = "grid-coordinate";
-    cell.textContent = columnName(i % sheet.columnCount) + (Math.floor(i / sheet.columnCount) + 1);
-    fragment.append(cell);
-  }
-  overlay.replaceChildren(fragment);
-  overlay.style.gridTemplateColumns = "repeat(" + sheet.columnCount + ", minmax(0, 1fr))";
-  overlay.style.gridTemplateRows = "repeat(" + sheet.rowCount + ", minmax(0, 1fr))";
-}
-
-function renderSheetData(data) {
-  sheet = {
-    rows: Array.isArray(data.rows) ? data.rows : [],
-    rowCount: Number(data.rowCount) || 0,
-    columnCount: Number(data.columnCount) || 0
-  };
-  $("#preview-frame").srcdoc = buildPreviewDocument(sheet.rows, sheet.columnCount);
-  renderGrid();
-}
-
-async function renderSheet(url) {
-  const message = $("#source-message");
-  message.textContent = "Mengambil data spreadsheet…";
-  message.className = "message";
-  try {
-    const data = await api("/api/render-sheet", {
-      method: "POST",
-      body: JSON.stringify({ url })
-    });
-    renderSheetData(data);
-    localStorage.setItem(URL_KEY, url);
-    message.textContent = "Spreadsheet berhasil diterjemahkan: " +
-      data.rowCount + " baris × " + data.columnCount + " kolom.";
-    message.classList.add("success");
-  } catch (error) {
-    message.textContent = error.message;
-    message.classList.add("error");
-  }
-}
-
-function selectPanel(name) {
-  const title = $("#panel-title");
-  const content = $("#panel-content");
-  $("#sidebar-nav").querySelectorAll(".nav-item").forEach((button) => {
-    const active = button.dataset.panel === name;
-    button.classList.toggle("is-selected", active);
-    button.querySelector(".nav-arrow").textContent = active ? "⌄" : "›";
-  });
-
-  const panels = {
-    umum: {
-      title: "Umum",
-      html: '<label class="field"><span>Tema antarmuka</span><select id="theme-select"><option value="system">System</option><option value="light">Terang</option><option value="dark">Gelap</option></select></label>' +
-        '<p class="note">Preview mengikuti ruang yang tersedia. Tutup sidebar untuk memaksimalkan area preview.</p>'
-    },
-    sumber: {
-      title: "Sumber Editor",
-      html: '<form id="sheet-form" class="source-form"><label class="field"><span>URL CSV Google Sheets</span><input id="sheet-url" type="url" placeholder="Tempel URL Publish to web (CSV)" required></label>' +
-        '<button class="action-button" type="submit">Render</button><p class="help">Google Sheets: File → Bagikan → Publikasikan ke web → pilih sheet → CSV → Publikasikan.</p><p id="source-message" class="message" role="status"></p></form>'
-    },
-    grid: {
-      title: "Grid",
-      html: '<label class="check-field"><input id="grid-visible" type="checkbox"><span>Tampilkan Grid</span></label>' +
-        '<p class="note">Grid mengikuti jumlah baris dan kolom dari data editor. Label menggunakan koordinat A1, B1, C1, dan seterusnya.</p>' +
-        '<p id="grid-info" class="muted">Belum ada data editor.</p>'
-    },
-    proyek: {
-      title: "Proyek",
-      html: '<p id="workspace-path" class="muted">Memuat lokasi penyimpanan…</p>' +
-        '<form id="create-form" class="source-form"><label class="field"><span>Buat proyek baru</span><input id="project-name" type="text" maxlength="80" placeholder="Nama proyek" required></label><button class="action-button" type="submit">Buat proyek</button><p id="project-message" class="message" role="status"></p></form>' +
-        '<div class="project-tools"><button id="refresh-projects" class="subtle-button" type="button">Muat ulang</button></div><div id="projects" class="projects">Memuat daftar proyek…</div>'
-    }
-  };
-
-  const selected = panels[name] || panels.umum;
-  title.textContent = selected.title;
-  content.innerHTML = selected.html;
-
-  if (name === "umum") {
-    $("#theme-select").value = document.documentElement.dataset.theme || "system";
-    $("#theme-select").addEventListener("change", (event) => setTheme(event.target.value));
-  }
-  if (name === "sumber") {
-    $("#sheet-url").value = localStorage.getItem(URL_KEY) || "";
-    $("#sheet-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      renderSheet($("#sheet-url").value.trim());
-    });
-  }
-  if (name === "grid") {
-    const checkbox = $("#grid-visible");
-    checkbox.checked = localStorage.getItem(GRID_KEY) === "true";
-    checkbox.addEventListener("change", () => {
-      localStorage.setItem(GRID_KEY, String(checkbox.checked));
-      renderGrid();
-    });
-    $("#grid-info").textContent = sheet.rowCount
-      ? sheet.rowCount + " baris × " + sheet.columnCount + " kolom"
-      : "Belum ada data editor.";
-  }
-  if (name === "proyek") initializeProjects();
-}
-
-function updateGeometry() {
-  const root = document.documentElement;
-  const width = Math.max(1, root.clientWidth || window.innerWidth);
-  const height = Math.max(1, root.clientHeight || window.innerHeight);
-  const baseWidth = width * 0.25;
-  const scale = sidebarCompact ? 0.5 : 1;
-  const open = document.body.classList.contains("sidebar-open");
-  const sidebarWidth = open ? baseWidth * scale : 0;
-  const previewWidth = width - sidebarWidth;
-  const previewScale = previewWidth / width;
-
-  document.body.style.setProperty("--sidebar-width", sidebarWidth + "px");
-  document.body.style.setProperty("--sidebar-base-width", baseWidth + "px");
-  document.body.style.setProperty("--sidebar-scale", String(scale));
-  document.body.style.setProperty("--sidebar-button-edge", (baseWidth * scale) + "px");
-  document.body.style.setProperty("--preview-left", sidebarWidth + "px");
-  document.body.style.setProperty("--preview-width", previewWidth + "px");
-
-  const stage = $("#preview-stage");
-  stage.style.width = width + "px";
-  stage.style.height = height + "px";
-  stage.style.transform = "translate3d(" + sidebarWidth + "px,0,0) scale(" + previewScale + ")";
-  $("#preview-frame").style.height = (height / previewScale) + "px";
-
-  const grid = $("#grid-overlay");
-  grid.style.left = sidebarWidth + "px";
-  grid.style.width = previewWidth + "px";
-  grid.style.height = height + "px";
-  if (!grid.hidden) renderGrid();
-}
-
-function setSidebarOpen(open) {
-  document.body.classList.toggle("sidebar-open", Boolean(open));
-  $("#editor-sidebar").classList.toggle("is-open", Boolean(open));
-  $("#sidebar-toggle").setAttribute("aria-expanded", String(Boolean(open)));
-  $("#sidebar-toggle").setAttribute("aria-label", open ? "Tutup sidebar pengaturan" : "Buka sidebar pengaturan");
-  updateGeometry();
-}
-
-function setCompact(compact) {
-  sidebarCompact = Boolean(compact);
-  document.body.classList.toggle("sidebar-compact", sidebarCompact);
-  updateGeometry();
-}
-
-async function initializeProjects() {
-  try {
-    const status = await api("/api/status");
-    $("#workspace-path").textContent = status.workspace;
-    await loadProjects();
-  } catch (error) {
-    $("#projects").textContent = error.message;
-  }
-
-  $("#create-form").addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const input = $("#project-name");
-    const message = $("#project-message");
-    try {
-      await api("/api/projects", {
-        method: "POST",
-        body: JSON.stringify({ name: input.value.trim() })
-      });
-      input.value = "";
-      message.textContent = "Proyek berhasil dibuat.";
-      message.className = "message success";
-      await loadProjects();
-    } catch (error) {
-      message.textContent = error.message;
-      message.className = "message error";
-    }
-  });
-  $("#refresh-projects").addEventListener("click", loadProjects);
-}
-
-async function loadProjects() {
-  const container = $("#projects");
-  try {
-    const data = await api("/api/projects");
-    container.replaceChildren();
-    if (!data.projects.length) {
-      container.textContent = "Belum ada proyek.";
-      return;
-    }
-    data.projects.forEach((project) => {
-      const item = document.createElement("div");
-      item.className = "project-item";
-      const name = document.createElement("strong");
-      name.textContent = project.name;
-      const path = document.createElement("small");
-      path.textContent = project.path;
-      item.append(name, path);
-      container.append(item);
-    });
-  } catch (error) {
-    container.textContent = error.message;
-  }
-}
-
-function initializeSidebar() {
-  $("#sidebar-nav").addEventListener("click", (event) => {
-    const button = event.target.closest(".nav-item");
-    if (button) selectPanel(button.dataset.panel);
-  });
-  $("#sidebar-toggle").addEventListener("click", () => {
-    setSidebarOpen(!document.body.classList.contains("sidebar-open"));
-  });
-  $("#sidebar-handle").addEventListener("pointerdown", (event) => {
-    $("#sidebar-handle").setPointerCapture(event.pointerId);
-    $("#sidebar-handle").dataset.startX = String(event.clientX);
-  });
-  $("#sidebar-handle").addEventListener("pointerup", (event) => {
-    const start = Number($("#sidebar-handle").dataset.startX || event.clientX);
-    const delta = event.clientX - start;
-    if (Math.abs(delta) > 8) setCompact(delta < 0);
-    else setCompact(!sidebarCompact);
-  });
-  $("#sidebar-handle").addEventListener("keydown", (event) => {
-    if (event.key === "ArrowLeft") { setCompact(true); event.preventDefault(); }
-    if (event.key === "ArrowRight") { setCompact(false); event.preventDefault(); }
-  });
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") setSidebarOpen(false);
-  });
-  window.addEventListener("resize", updateGeometry, { passive: true });
-  selectPanel("umum");
-  setSidebarOpen(false);
-}
-
-applyTheme();
-initializeSidebar();
-updateGeometry();
-
-const savedUrl = localStorage.getItem(URL_KEY);
-if (savedUrl) renderSheet(savedUrl);
+function geometry(){const w=Math.max(1,document.documentElement.clientWidth||innerWidth),h=Math.max(1,document.documentElement.clientHeight||innerHeight),base=w*.25,scale=sidebarCompact?.5:1,open=document.body.classList.contains("sidebar-open"),sw=open?base*scale:0,pw=w-sw,ps=pw/w;document.body.style.setProperty("--sidebar-width",sw+"px");document.body.style.setProperty("--sidebar-base-width",base+"px");document.body.style.setProperty("--sidebar-scale",scale);document.body.style.setProperty("--sidebar-button-edge",base*scale+"px");const st=$("#preview-stage");st.style.width=w+"px";st.style.height=h+"px";st.style.transform="translate3d("+sw+"px,0,0) scale("+ps+")";$("#workspace-frame").style.height=(h/ps)+"px";$("#excel-workspace").style.height=(h/ps)+"px";const g=$("#grid-overlay");g.style.left=sw+"px";g.style.width=pw+"px";g.style.height=h+"px";if(!g.hidden)renderGrid();}
+function sidebar(open){document.body.classList.toggle("sidebar-open",!!open);$("#editor-sidebar").classList.toggle("is-open",!!open);$("#sidebar-toggle").setAttribute("aria-expanded",String(!!open));geometry();}
+function init(){ $("#sidebar-nav").onclick=e=>{const b=e.target.closest(".nav-item");if(b)selectPanel(b.dataset.panel);};$("#sidebar-toggle").onclick=()=>sidebar(!document.body.classList.contains("sidebar-open"));$("#sidebar-handle").onpointerdown=e=>{e.currentTarget.setPointerCapture(e.pointerId);e.currentTarget.dataset.x=e.clientX;};$("#sidebar-handle").onpointerup=e=>{const d=e.clientX-Number(e.currentTarget.dataset.x||e.clientX);sidebarCompact=Math.abs(d)>8?d<0:!sidebarCompact;document.body.classList.toggle("sidebar-compact",sidebarCompact);geometry();};$("#sidebar-handle").onkeydown=e=>{if(e.key==="ArrowLeft")sidebarCompact=true;if(e.key==="ArrowRight")sidebarCompact=false;document.body.classList.toggle("sidebar-compact",sidebarCompact);geometry();};$("#open-excel").onclick=openExcel;
+ $("#excel-upload").onchange=async e=>{const file=e.target.files[0];if(!file||!activeProject)return;try{const r=await fetch("/api/projects/"+activeProject.id+"/editor-file",{method:"PUT",headers:{"Content-Type":"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"},body:await file.arrayBuffer()}),d=await r.json();if(!r.ok)throw Error(d.error);activeProject=d.project;$("#excel-message").textContent="File editor berhasil diperbarui.";}catch(err){$("#excel-message").textContent=err.message;}e.target.value="";};
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")sidebar(false);});window.addEventListener("resize",geometry,{passive:true});selectPanel("proyek");sidebar(false);geometry();api("/api/projects").then(d=>{const id=localStorage.getItem("kb-active-project");if(id&&d.projects.some(p=>p.id===id))openProject(id);}).catch(()=>{});}
+setTheme(localStorage.getItem(THEME_KEY)||"system");init();

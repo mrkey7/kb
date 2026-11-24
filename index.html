@@ -1,50 +1,13 @@
 <!doctype html>
-<html lang="id">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Konten Builder — Editor</title>
-  <link rel="stylesheet" href="app/style.css">
-</head>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Konten Builder — Editor</title><link rel="stylesheet" href="app/style.css"></head>
 <body>
-  <main id="preview-stage" aria-label="Preview halaman">
-    <iframe id="preview-frame" title="Preview hasil terjemahan spreadsheet" sandbox=""></iframe>
-  </main>
-  <div id="grid-overlay" aria-hidden="true" hidden></div>
-  <button id="sidebar-toggle" type="button" aria-label="Buka sidebar pengaturan" aria-expanded="false" title="Pengaturan editor">
-    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path>
-    </svg>
-  </button>
-  <aside id="editor-sidebar" aria-label="Pengaturan editor">
-    <div id="sidebar-inner">
-      <header class="sidebar-header">
-        <div class="brand">KB <span>Konten Builder</span></div>
-        <p>EDITOR</p>
-      </header>
-      <nav id="sidebar-nav" aria-label="Daftar pengaturan">
-        <button class="nav-item is-selected" type="button" data-panel="umum"><span>Umum</span><span class="nav-arrow">⌄</span></button>
-        <button class="nav-item" type="button" data-panel="sumber"><span>Sumber Editor</span><span class="nav-arrow">›</span></button>
-        <button class="nav-item" type="button" data-panel="grid"><span>Grid</span><span class="nav-arrow">›</span></button>
-        <button class="nav-item" type="button" data-panel="proyek"><span>Proyek</span><span class="nav-arrow">›</span></button>
-      </nav>
-      <section id="sidebar-panel" aria-live="polite">
-        <h2 id="panel-title">Umum</h2>
-        <div id="panel-content">
-          <label class="field">
-            <span>Tema antarmuka</span>
-            <select id="theme-select">
-              <option value="system">System</option>
-              <option value="light">Terang</option>
-              <option value="dark">Gelap</option>
-            </select>
-          </label>
-          <p class="note">Preview mengikuti ruang yang tersedia. Tutup sidebar untuk memaksimalkan area preview.</p>
-        </div>
-      </section>
-    </div>
-    <div id="sidebar-handle" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ubah ukuran sidebar"></div>
-  </aside>
-  <script src="app/app.js"></script>
-</body>
-</html>
+<main id="preview-stage" aria-label="Area kerja proyek">
+<iframe id="workspace-frame" title="Editor atau preview proyek" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"></iframe>
+<section id="excel-workspace" hidden><div class="excel-card"><div class="excel-icon">X</div><h1>Editor Excel</h1><p id="excel-project-name">Pilih proyek untuk memulai.</p><p>File editor tersimpan langsung di folder proyek KB. Buka dengan aplikasi Excel, edit seperti biasa, lalu kembali ke KB untuk memperbarui preview.</p><button id="open-excel" class="action-button" type="button">Buka di Excel</button><label class="upload-label">Ganti / perbarui file Excel<input id="excel-upload" type="file" accept=".xlsx"></label><p id="excel-message" class="message" role="status"></p></div></section>
+</main>
+<div id="grid-overlay" aria-hidden="true" hidden></div>
+<button id="sidebar-toggle" type="button" aria-label="Buka sidebar" aria-expanded="false" title="Pengaturan"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 3v18"></path></svg></button>
+<aside id="editor-sidebar" aria-label="Panel kendali KB"><div id="sidebar-inner"><header class="sidebar-header"><div class="brand">KB <span>Konten Builder</span></div><p>WORKSPACE</p></header>
+<nav id="sidebar-nav" aria-label="Menu"><button class="nav-item is-selected" type="button" data-panel="proyek"><span>Proyek</span><span class="nav-arrow">⌄</span></button><button class="nav-item" type="button" data-panel="editor"><span>Editor</span><span class="nav-arrow">›</span></button><button class="nav-item" type="button" data-panel="preview"><span>Preview</span><span class="nav-arrow">›</span></button><button class="nav-item" type="button" data-panel="sumber"><span>Sumber</span><span class="nav-arrow">›</span></button><button class="nav-item" type="button" data-panel="grid"><span>Grid</span><span class="nav-arrow">›</span></button><button class="nav-item" type="button" data-panel="umum"><span>Umum</span><span class="nav-arrow">›</span></button></nav>
+<section id="sidebar-panel" aria-live="polite"><h2 id="panel-title">Proyek</h2><div id="panel-content"></div></section></div><div id="sidebar-handle" role="separator" tabindex="0" aria-orientation="vertical" aria-label="Ubah ukuran sidebar"></div></aside>
+<script src="app/app.js"></script></body></html>
