@@ -118,7 +118,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
             return json_response(self, {"error": "Data permintaan tidak valid."}, 400)
 
-        if not name or name in {".", ".."} or any(c in name for c in r'<>:"/\\\\|?*'):
+        if not name or name in {".", ".."} or any(c in name for c in r'<>:"/\\|?*'):
             return json_response(self, {"error": "Nama proyek tidak valid."}, 400)
 
         project = WORKSPACE / name
