@@ -177,3 +177,15 @@ h1 { margin: 5px 0; font-size: clamp(24px, 3.6vh, 34px); }
 }
 
 .sheet-result { max-height: none; overflow: hidden; }
+
+
+/* Prioritize the rendered page area over the project list. */
+#sheet-panel { flex: 2 1 0; min-height: 0; }
+#project-panel { flex: 1 1 0; min-height: 0; }
+#sheet-panel .sheet-form { flex: 0 0 auto; }
+#sheet-panel .sheet-result { flex: 1 1 auto; min-height: 120px; }
+#sheet-panel .sheet-preview { min-height: 0; }
+@media (max-height: 700px) {
+  #sheet-panel { flex: 2.4 1 0; }
+  #project-panel { flex: 0.8 1 0; }
+}
