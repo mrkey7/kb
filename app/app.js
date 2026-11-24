@@ -1,5 +1,19 @@
 const $ = (selector) => document.querySelector(selector);
 
+const THEME_KEY = "kb-theme";
+
+function setTheme(theme) {
+  const selected = ["system", "light", "dark"].includes(theme) ? theme : "system";
+  document.documentElement.dataset.theme = selected;
+  $("#theme-select").value = selected;
+  localStorage.setItem(THEME_KEY, selected);
+}
+
+function initializeTheme() {
+  setTheme(localStorage.getItem(THEME_KEY) || "system");
+  $("#theme-select").addEventListener("change", (event) => setTheme(event.target.value));
+}
+
 async function api(url, options = {}) {
   const response = await fetch(url, {
     headers: { "Content-Type": "application/json" },
@@ -13,7 +27,7 @@ async function api(url, options = {}) {
 function showMessage(message, isError = true) {
   const element = $("#message");
   element.textContent = message;
-  element.style.color = isError ? "#b04444" : "#198754";
+  element.classList.toggle("success", !isError);
 }
 
 async function loadProjects() {
@@ -63,6 +77,7 @@ async function initialize() {
   }
 }
 
+initializeTheme();
 $("#create-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#project-name");
