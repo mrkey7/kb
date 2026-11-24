@@ -56,12 +56,18 @@ class Handler(SimpleHTTPRequestHandler):
             })
 
         if path == "/api/projects":
-            projects = [
-                {"name": item.name, "path": str(item)}
-                for item in sorted(WORKSPACE.iterdir(), key=lambda p: p.name.lower())
-                if item.is_dir() and not item.name.startswith(".")
-            ]
-            return json_response(self, {"projects": projects})
+            projects = []
+            for item in sorted(WORKSPACE.iterdir(), key=lambda p: p.name.lower()):
+                if item.is_dir() and (item / "project.json").exists():
+                    try:
+                        info = json.loads((item / "project.json").read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        info = {"name": item.name}
+                    projects.append({
+                        "name": info.get("name", item.name),
+                        "path": str(item)
+                    })
+            return json_response(self, {"ok": True, "projects": projects})
 
         return super().do_GET()
 
@@ -90,20 +96,24 @@ class Handler(SimpleHTTPRequestHandler):
                 if len(content) > 2_000_000:
                     return json_response(self, {"error": "CSV terlalu besar (maksimal 2 MB)."}, 413)
 
-                rows = csv.reader(io.StringIO(content.decode("utf-8-sig")))
-                lines = []
-                for row in rows:
-                    line = " ".join(cell.strip() for cell in row if cell.strip())
-                    if line:
-                        lines.append(line)
-                    if len(lines) > 1000:
-                        return json_response(self, {"error": "Terlalu banyak baris (maksimal 1000 baris teks)."}, 413)
+                parsed_rows = list(csv.reader(io.StringIO(content.decode("utf-8-sig"))))
+                row_count = len(parsed_rows)
+                column_count = max((len(row) for row in parsed_rows), default=0)
+                if row_count > 1000 or column_count > 256:
+                    return json_response(self, {"error": "Ukuran spreadsheet terlalu besar (maksimal 1000 baris dan 256 kolom)."}, 413)
 
-                if not lines:
+                rows = [row + [""] * (column_count - len(row)) for row in parsed_rows]
+                if not any(cell.strip() for row in rows for cell in row):
                     return json_response(self, {"error": "Tidak ditemukan teks pada spreadsheet."}, 422)
 
-                return json_response(self, {"ok": True, "lines": lines, "count": len(lines)})
-            except (ValueError, UnicodeDecodeError, csv.Error):
+                return json_response(self, {
+                    "ok": True,
+                    "rows": rows,
+                    "rowCount": row_count,
+                    "columnCount": column_count,
+                    "count": row_count
+                })
+            except (ValueError, UnicodeDecodeError, csv.Error, json.JSONDecodeError):
                 return json_response(self, {"error": "Data CSV tidak dapat dibaca."}, 400)
             except Exception as exc:
                 return json_response(self, {"error": f"Gagal mengambil spreadsheet: {exc}"}, 502)
@@ -137,6 +147,7 @@ class Handler(SimpleHTTPRequestHandler):
             return json_response(self, {"error": f"Gagal membuat proyek: {exc}"}, 500)
 
         return json_response(self, {"ok": True, "name": name, "path": str(project)}, 201)
+
 
 if __name__ == "__main__":
     os.chdir(ROOT)
