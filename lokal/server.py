@@ -130,7 +130,7 @@ class Handler(SimpleHTTPRequestHandler):
             (project / "assets").mkdir()
             (project / "dist").mkdir()
             (project / "project.json").write_text(
-                json.dumps({"name": name, "version": 1}, ensure_ascii=False, indent=2) + "\\n",
+                json.dumps({"name": name, "version": 1}, ensure_ascii=False, indent=2) + "\n",
                 encoding="utf-8"
             )
         except OSError as exc:
