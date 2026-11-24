@@ -95,3 +95,40 @@ $("#create-form").addEventListener("submit", async (event) => {
 
 $("#refresh").addEventListener("click", loadProjects);
 initialize();
+
+
+async function renderSheet(url) {
+  const message = $("#sheet-message");
+  const result = $("#sheet-result");
+  const preview = $("#sheet-preview");
+  const count = $("#sheet-count");
+  message.textContent = "Mengambil data spreadsheet…";
+  message.classList.remove("success");
+  result.hidden = true;
+  preview.replaceChildren();
+
+  try {
+    const data = await api("/api/render-sheet", {
+      method: "POST",
+      body: JSON.stringify({ url })
+    });
+
+    for (const line of data.lines) {
+      const paragraph = document.createElement("p");
+      paragraph.textContent = line;
+      preview.append(paragraph);
+    }
+
+    count.textContent = data.lines.length + " baris teks";
+    result.hidden = false;
+    message.textContent = "Spreadsheet berhasil diterjemahkan.";
+    message.classList.add("success");
+  } catch (error) {
+    message.textContent = error.message;
+  }
+}
+
+$("#sheet-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  renderSheet($("#sheet-url").value.trim());
+});

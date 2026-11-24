@@ -32,6 +32,30 @@
     <section class="panel">
       <div class="section-heading">
         <div>
+          <h2>Uji Google Sheets</h2>
+          <p class="muted">Ambil teks dari spreadsheet publik dan tampilkan sebagai halaman web.</p>
+        </div>
+      </div>
+      <form id="sheet-form" class="sheet-form">
+        <label for="sheet-url">URL CSV Google Sheets</label>
+        <div class="form-row">
+          <input id="sheet-url" name="url" type="url" placeholder="Tempel URL hasil Publish to web (CSV)" required>
+          <button class="button primary" type="submit">Render halaman</button>
+        </div>
+        <p class="sheet-help">Di Google Sheets: File → Bagikan → Publikasikan ke web → pilih sheet → format CSV → Publikasikan. Salin URL yang diberikan.</p>
+        <p id="sheet-message" class="message" role="status"></p>
+      </form>
+      <section id="sheet-result" class="sheet-result" aria-live="polite" hidden>
+        <div class="preview-heading">
+          <h3>Hasil render</h3>
+          <span id="sheet-count" class="muted"></span>
+        </div>
+        <article id="sheet-preview" class="sheet-preview"></article>
+      </section>
+    </section>
+    <section class="panel">
+      <div class="section-heading">
+        <div>
           <h2>Proyek</h2>
           <p id="workspace-path" class="muted">Memuat lokasi penyimpanan…</p>
         </div>
