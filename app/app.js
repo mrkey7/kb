@@ -77,6 +77,45 @@ async function initialize() {
   }
 }
 
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (char) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[char]);
+}
+
+function buildPreviewDocument(lines) {
+  const paragraphs = lines.map((line) => `<p>${escapeHtml(line)}</p>`).join("\n");
+  return `<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Preview Konten</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: clamp(24px, 5vw, 64px);
+      color: #20242b;
+      background: #fff;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      overflow-wrap: anywhere;
+    }
+    main { width: min(100%, 900px); margin: 0 auto; }
+    p { margin: 0 0 1em; }
+    p:last-child { margin-bottom: 0; }
+  </style>
+</head>
+<body><main>${paragraphs}</main></body>
+</html>`;
+}
+
 initializeTheme();
 $("#create-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -96,7 +135,6 @@ $("#create-form").addEventListener("submit", async (event) => {
 $("#refresh").addEventListener("click", loadProjects);
 initialize();
 
-
 async function renderSheet(url) {
   const message = $("#sheet-message");
   const result = $("#sheet-result");
@@ -105,7 +143,6 @@ async function renderSheet(url) {
   message.textContent = "Mengambil data spreadsheet…";
   message.classList.remove("success");
   result.hidden = true;
-  preview.replaceChildren();
 
   try {
     const data = await api("/api/render-sheet", {
@@ -113,12 +150,7 @@ async function renderSheet(url) {
       body: JSON.stringify({ url })
     });
 
-    for (const line of data.lines) {
-      const paragraph = document.createElement("p");
-      paragraph.textContent = line;
-      preview.append(paragraph);
-    }
-
+    preview.srcdoc = buildPreviewDocument(data.lines);
     count.textContent = data.lines.length + " baris teks";
     result.hidden = false;
     message.textContent = "Spreadsheet berhasil diterjemahkan.";
