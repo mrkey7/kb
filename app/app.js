@@ -164,3 +164,12 @@ $("#sheet-form").addEventListener("submit", (event) => {
   event.preventDefault();
   renderSheet($("#sheet-url").value.trim());
 });
+
+
+const projectPanel = $("#project-panel");
+const projectToggle = $("#toggle-projects");
+projectToggle.addEventListener("click", () => {
+  const expanded = projectPanel.classList.toggle("is-expanded");
+  projectToggle.textContent = expanded ? "Sembunyikan" : "Tampilkan";
+  projectToggle.setAttribute("aria-expanded", String(expanded));
+});

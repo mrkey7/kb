@@ -189,3 +189,23 @@ h1 { margin: 5px 0; font-size: clamp(24px, 3.6vh, 34px); }
   #sheet-panel { flex: 2.4 1 0; }
   #project-panel { flex: 0.8 1 0; }
 }
+
+
+/* Keep project management collapsed so it cannot consume preview space. */
+#project-panel { flex: 0 0 auto; max-height: 54px; overflow: hidden; }
+#project-panel.is-expanded {
+  flex: 0 1 30%;
+  max-height: 30%;
+  min-height: 130px;
+}
+#project-panel .create-form,
+#project-panel .projects { display: none; }
+#project-panel.is-expanded .create-form,
+#project-panel.is-expanded .projects { display: block; }
+#project-panel.is-expanded .projects { overflow-y: auto; }
+.project-actions { display: flex; flex: 0 0 auto; gap: 8px; }
+#project-panel .section-heading { align-items: center; min-height: 30px; }
+@media (max-height: 620px) {
+  #project-panel { max-height: 48px; }
+  #project-panel.is-expanded { max-height: 32%; }
+}
