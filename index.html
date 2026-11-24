@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Konten Builder</title>
+  <link rel="stylesheet" href="app/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">KB <span>Konten Builder</span></div>
+      <p class="tagline">Menyusun konten web dengan cara yang lebih mudah.</p>
+    </div>
+    <span id="connection" class="status">Menghubungkan…</span>
+  </header>
+  <main class="container">
+    <section class="welcome">
+      <p class="eyebrow">WORKSPACE LOKAL</p>
+      <h1>Mulai membangun konten web.</h1>
+      <p>Kelola proyek website dari satu tempat. Konten dan aset setiap proyek disimpan terpisah.</p>
+    </section>
+    <section class="panel">
+      <div class="section-heading">
+        <div>
+          <h2>Proyek</h2>
+          <p id="workspace-path" class="muted">Memuat lokasi penyimpanan…</p>
+        </div>
+        <button id="refresh" class="button secondary" type="button">Muat ulang</button>
+      </div>
+      <form id="create-form" class="create-form">
+        <label for="project-name">Buat proyek baru</label>
+        <div class="form-row">
+          <input id="project-name" name="name" type="text" placeholder="Contoh: Website Pesantren" required maxlength="80">
+          <button class="button primary" type="submit">Buat proyek</button>
+        </div>
+        <p id="message" class="message" role="status"></p>
+      </form>
+      <div id="projects" class="projects">
+        <p class="muted">Memuat daftar proyek…</p>
+      </div>
+    </section>
+  </main>
+  <script src="app/app.js"></script>
+</body>
+</html>
