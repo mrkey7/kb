@@ -138,7 +138,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         return json_response(self, {"ok": True, "name": name, "path": str(project)}, 201)
 
-\nif __name__ == "__main__":
+if __name__ == "__main__":
     os.chdir(ROOT)
     address = f"http://127.0.0.1:{PORT}"
     print(f"Konten Builder berjalan di {address}")
