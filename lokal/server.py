@@ -5,6 +5,9 @@ from threading import Timer
 import json
 import os
 import webbrowser
+import csv
+import io
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parent.parent
 SETTINGS_FILE = ROOT / "lokal" / "settings.json"
@@ -64,6 +67,47 @@ class Handler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+
+        if path == "/api/render-sheet":
+            try:
+                length = int(self.headers.get("Content-Length", "0"))
+                if length > 4096:
+                    return json_response(self, {"error": "Permintaan terlalu besar."}, 413)
+
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                url = str(payload.get("url", "")).strip()
+                parsed = urlparse(url)
+
+                if parsed.scheme != "https" or parsed.hostname != "docs.google.com":
+                    return json_response(self, {"error": "Gunakan URL publik CSV dari Google Sheets."}, 400)
+                if "/spreadsheets/" not in parsed.path or "pub" not in parsed.path or "output=csv" not in parsed.query:
+                    return json_response(self, {"error": "URL belum berupa tautan Publish to web format CSV. Publikasikan sheet sebagai CSV, lalu salin URL-nya."}, 400)
+
+                request = Request(url, headers={"User-Agent": "KontenBuilder/1.0"})
+                with urlopen(request, timeout=15) as response:
+                    content = response.read(2_000_001)
+
+                if len(content) > 2_000_000:
+                    return json_response(self, {"error": "CSV terlalu besar (maksimal 2 MB)."}, 413)
+
+                rows = csv.reader(io.StringIO(content.decode("utf-8-sig")))
+                lines = []
+                for row in rows:
+                    line = " ".join(cell.strip() for cell in row if cell.strip())
+                    if line:
+                        lines.append(line)
+                    if len(lines) > 1000:
+                        return json_response(self, {"error": "Terlalu banyak baris (maksimal 1000 baris teks)."}, 413)
+
+                if not lines:
+                    return json_response(self, {"error": "Tidak ditemukan teks pada spreadsheet."}, 422)
+
+                return json_response(self, {"ok": True, "lines": lines, "count": len(lines)})
+            except (ValueError, UnicodeDecodeError, csv.Error):
+                return json_response(self, {"error": "Data CSV tidak dapat dibaca."}, 400)
+            except Exception as exc:
+                return json_response(self, {"error": f"Gagal mengambil spreadsheet: {exc}"}, 502)
+
         if path != "/api/projects":
             return json_response(self, {"error": "Endpoint tidak ditemukan."}, 404)
 
@@ -74,7 +118,7 @@ class Handler(SimpleHTTPRequestHandler):
         except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
             return json_response(self, {"error": "Data permintaan tidak valid."}, 400)
 
-        if not name or name in {".", ".."} or any(c in name for c in r'<>:"/\\|?*'):
+        if not name or name in {".", ".."} or any(c in name for c in r'<>:"/\\\\|?*'):
             return json_response(self, {"error": "Nama proyek tidak valid."}, 400)
 
         project = WORKSPACE / name
@@ -86,7 +130,7 @@ class Handler(SimpleHTTPRequestHandler):
             (project / "assets").mkdir()
             (project / "dist").mkdir()
             (project / "project.json").write_text(
-                json.dumps({"name": name, "version": 1}, ensure_ascii=False, indent=2) + "\n",
+                json.dumps({"name": name, "version": 1}, ensure_ascii=False, indent=2) + "\\n",
                 encoding="utf-8"
             )
         except OSError as exc:
@@ -94,8 +138,7 @@ class Handler(SimpleHTTPRequestHandler):
 
         return json_response(self, {"ok": True, "name": name, "path": str(project)}, 201)
 
-
-if __name__ == "__main__":
+\nif __name__ == "__main__":
     os.chdir(ROOT)
     address = f"http://127.0.0.1:{PORT}"
     print(f"Konten Builder berjalan di {address}")
