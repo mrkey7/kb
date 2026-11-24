@@ -7,16 +7,15 @@ echo === KB: PUSH ===
 git add -A
 
 git diff --cached --quiet
-if not errorlevel 1 (
-    echo Tidak ada perubahan untuk di-commit.
-    exit /b 0
-)
-
-git commit -m "Update KB"
 if errorlevel 1 (
-    echo.
-    echo Commit gagal.
-    exit /b 1
+    git commit -m "Update KB"
+    if errorlevel 1 (
+        echo.
+        echo Commit gagal.
+        exit /b 1
+    )
+) else (
+    echo Tidak ada perubahan baru untuk di-commit.
 )
 
 git push
